@@ -122,7 +122,25 @@ assert_has_field!(Point, x :~ String); // This will not compile
 ```rust
 #[macro_export]
 macro_rules! assert_has_field {
-    ($struct:ty, $field:ident $(: $field_ty:ty)?) => {
+    (@ASSERT $unreachable_obj:ident, $field:ident) => {
+        // Here, it is only checked that the field exists.
+        let _: _ = $unreachable_obj.$field;
+    };
+    (@ASSERT $unreachable_obj:ident, $field:ident : $field_ty:ty) => {
+        // Here, the value on the right hand side must be the same type as the type on the left hand side
+        // and the field must exist.
+        let _ : $field_ty = type_equalities::coerce($unreachable_obj.$field, type_equalities::refl());
+    };
+    (@ASSERT $unreachable_obj:ident, $field:ident :~ $field_ty:ty) => {
+        // Here, the value on the right hand side can be coerced to the type on the left hand side
+        // and the field must exist.
+        let _ : $field_ty = $unreachable_obj.$field;
+    };
+    (
+        $struct:ty,
+        $field:ident
+            $($rest:tt)*
+    ) => {
         // The const block forces the const evaluation.
         #[allow(
             unreachable_code,
@@ -137,7 +155,7 @@ macro_rules! assert_has_field {
                 // The return type of core::unreachable!() is never type,
                 // which can be assigned to any type.
                 let unreachable_obj: $struct = core::unreachable!();
-                let _ $(: $field_ty)? = unreachable_obj.$field;
+                assert_has_field!(@ASSERT unreachable_obj, $field $($rest)*);
             }
         };
     };

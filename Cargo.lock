@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "assert_has_field"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "type-equalities",
 ]
