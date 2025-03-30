@@ -10,6 +10,12 @@ This macro is designed to be used in Rust code to assert that a struct has a spe
 
 ## Usage
 
+The macro offers three syntaxes for checking if a struct has a field
+
+1. `assert_has_field!(Struct, field);` - checks if the struct has a field with the given name.
+2. `assert_has_field!(Struct, field: Type);` - checks if the struct has a field with the given name and type.
+3. `assert_has_field!(Struct, field :~ Type);` - checks if the struct has a field with the given name and type that can be coerced to the specified type `Type`.
+
 ### Checking that a struct has a field
 
 ```rust
@@ -38,7 +44,7 @@ struct MyStruct {
 assert_has_field!(MyStruct, field1: i32); // This will compile
 ```
 
-### Checking that a struct has a field of a specific type (failure case)
+### Checking that a struct has a field of a specific type (failure case for a totally different type)
 
 ```rust,compile_fail
 use assert_has_field::assert_has_field;
@@ -50,6 +56,65 @@ struct MyStruct {
 }
 
 assert_has_field!(MyStruct, field1: String); // This will fail to compile
+```
+
+### Checking that a struct has a field of a specific type (failure case for a type that can be coerced to)
+
+```rust,compile_fail
+struct Wrapper<T>(T);
+
+impl core::ops::Deref for Wrapper<i32> {
+    type Target = i32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[allow(dead_code)]
+struct MyStruct {
+    field1: &'static Wrapper<i32>,
+    field2: String,
+}
+
+assert_has_field!(MyStruct, field1: &'static i32); // This will fail to compile
+```
+
+### Checking that a struct has a field of a type that can be coerced to another type
+
+```rust
+use assert_has_field::assert_has_field;
+
+struct Wrapper<T>(T);
+
+impl core::ops::Deref for Wrapper<i32> {
+    type Target = i32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[allow(dead_code)]
+struct MyStruct {
+    field1: &'static Wrapper<i32>,
+    field2: String,
+}
+
+assert_has_field!(MyStruct, field1 :~ &'static i32);
+```
+
+### Checking that a struct has a field of a type that can be coerced to another type (failure case)
+
+```rust,compile_fail
+use assert_has_field::assert_has_field;
+
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+assert_has_field!(Point, x :~ String); // This will not compile
 ```
 
 ## How it works

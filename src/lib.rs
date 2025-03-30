@@ -3,6 +3,16 @@
 
 /// This macro performs a compile-time check if a struct has a specific field.
 ///
+/// ## Syntax
+///
+/// The macro offers three syntaxes for checking if a struct has a field
+///
+/// 1. `assert_has_field!(Struct, field);` - checks if the struct has a field with the given name.
+/// 2. `assert_has_field!(Struct, field: Type);` - checks if the struct has a field with the given name and type.
+/// 3. `assert_has_field!(Struct, field :~ Type);` - checks if the struct has a field with the given name and type that can be coerced to the specified type `Type`.
+///
+/// ## Examples
+///
 /// ```rust
 /// use assert_has_field::assert_has_field;
 ///
@@ -46,6 +56,62 @@
 /// assert_has_field!(Point, x: u64);
 /// ```
 ///
+/// Note, however, that `:` syntax in this macro asserts the *exact* type of the field,
+/// preventing any coercion to minimize the human error.
+///
+/// The following code will not compile:
+///
+/// ```rust,compile_fail
+/// use assert_has_field::assert_has_field;
+///
+/// struct Wrapper<T>(T);
+///
+/// impl<T> core::ops::Deref for Wrapper<T> {
+///   type Target = T;
+///
+///  fn deref(&self) -> &Self::Target {
+///      &self.0
+///  }
+/// }
+///
+/// #[allow(dead_code)]
+/// struct Point2 {
+///    x: &'static Wrapper<u64>,
+///   y: u64,
+/// }
+///
+/// // This will cause a compile-time error because `Point2`'s field `x` is of type
+/// // `&'static Wrapper<u64>`, not `&'static u64`.
+/// assert_has_field!(Point2, x: &'static u64);
+/// ```
+///
+/// Additionally, you can use the made-up `:~` syntax to assert that the field
+/// can be coerced to the specified type.
+///
+/// ```rust
+/// use assert_has_field::assert_has_field;
+///
+/// #[allow(dead_code)]
+/// struct Wrapper<T>(T);
+///
+/// impl<T> core::ops::Deref for Wrapper<T> {
+///    type Target = T;
+///
+///   fn deref(&self) -> &Self::Target {
+///       &self.0
+///   }
+/// }
+///
+/// #[allow(dead_code)]
+/// struct Point2 {
+///     x: &'static Wrapper<u64>,
+///     y: u64,
+/// }
+///
+/// // This will compile because `Point2` has a field `x` that can be coerced to `&'static u64`.
+/// assert_has_field!(Point2, x :~ &'static u64);
+/// ```
+///
 /// ## On real use-cases
 ///
 /// Let's say that you're writing a backend server and have a DTO, which is meant
@@ -57,7 +123,25 @@
 /// moves or removes the `candidate_id`.
 #[macro_export]
 macro_rules! assert_has_field {
-    ($struct:ty, $field:ident $(: $field_ty:ty)?) => {
+    (@ASSERT $unreachable_obj:ident, $field:ident) => {
+        // Here, it is only checked that the field exists.
+        let _: _ = $unreachable_obj.$field;
+    };
+    (@ASSERT $unreachable_obj:ident, $field:ident : $field_ty:ty) => {
+        // Here, the value on the right hand side must be the same type as the type on the left hand side
+        // and the field must exist.
+        let _ : $field_ty = type_equalities::coerce($unreachable_obj.$field, type_equalities::refl());
+    };
+    (@ASSERT $unreachable_obj:ident, $field:ident :~ $field_ty:ty) => {
+        // Here, the value on the right hand side can be coerced to the type on the left hand side
+        // and the field must exist.
+        let _ : $field_ty = $unreachable_obj.$field;
+    };
+    (
+        $struct:ty,
+        $field:ident
+            $($rest:tt)*
+    ) => {
         // The const block forces the const evaluation.
         #[allow(
             unreachable_code,
@@ -72,7 +156,7 @@ macro_rules! assert_has_field {
                 // The return type of core::unreachable!() is never type,
                 // which can be assigned to any type.
                 let unreachable_obj: $struct = core::unreachable!();
-                let _ $(: $field_ty)? = unreachable_obj.$field;
+                assert_has_field!(@ASSERT unreachable_obj, $field $($rest)*);
             }
         };
     };
@@ -90,4 +174,22 @@ mod tests {
 
     assert_has_field!(Point, x);
     assert_has_field!(Point, x : u64);
+
+    struct Wrapper<T>(T);
+
+    impl<T> core::ops::Deref for Wrapper<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    #[allow(dead_code)]
+    struct Point2 {
+        x: &'static Wrapper<u64>,
+        y: u64,
+    }
+
+    assert_has_field!(Point2, x :~ &'static u64);
 }
