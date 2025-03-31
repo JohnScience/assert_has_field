@@ -17,7 +17,13 @@ pub mod secret {
     impl<T: ?Sized, U: ?Sized> IsEqual<U> for T where T: AliasSelf<Alias = U> {}
 
     // Source: https://stackoverflow.com/a/70978292/8341513
-    pub fn ty_must_eq<T, U>(_: T) where T: IsEqual<U> {}
+    // The function cannot be const at the time of writing because
+    // destructor of `T` cannot be evaluated at compile-time and const drop is unstable
+    pub fn ty_must_eq<T, U>(_: T)
+    where
+        T: IsEqual<U>,
+    {
+    }
 }
 
 /// This macro performs a compile-time check if a struct has a specific field.
@@ -142,16 +148,23 @@ pub mod secret {
 /// moves or removes the `candidate_id`.
 #[macro_export]
 macro_rules! assert_has_field {
-    (@ASSERT $unreachable_obj:ident, $field:ident) => {
+    (@ASSERT $unreachable_obj:ident: $struct:ty, $field:ident) => {
         // Here, it is only checked that the field exists.
         let _: _ = $unreachable_obj.$field;
     };
-    (@ASSERT $unreachable_obj:ident, $field:ident : $field_ty:ty) => {
-        // Here, the value on the right hand side must be the same type as the type on the left hand side
-        // and the field must exist.
-        $crate::secret::ty_must_eq::<_, $field_ty>($unreachable_obj.$field);
+    (@ASSERT $unreachable_obj:ident: $struct:ty, $field:ident : $field_ty:ty) => {
+        // We define a dummy function instead of calling the function directly
+        // because the function call would be non-constant
+        //
+        // At the moment of writing, a non-constant function call falsly compiled but oh well
+        fn dummy(v: $struct) {
+            $crate::secret::ty_must_eq::<_, $field_ty>(
+                // Here, the validation that the field exists is performed
+                v.$field
+            );
+        }
     };
-    (@ASSERT $unreachable_obj:ident, $field:ident :~ $field_ty:ty) => {
+    (@ASSERT $unreachable_obj:ident: $struct:ty, $field:ident :~ $field_ty:ty) => {
         // Here, the value on the right hand side can be coerced to the type on the left hand side
         // and the field must exist.
         let _ : $field_ty = $unreachable_obj.$field;
@@ -175,7 +188,7 @@ macro_rules! assert_has_field {
                 // The return type of core::unreachable!() is never type,
                 // which can be assigned to any type.
                 let unreachable_obj: $struct = core::unreachable!();
-                assert_has_field!(@ASSERT unreachable_obj, $field $($rest)*);
+                assert_has_field!(@ASSERT unreachable_obj: $struct, $field $($rest)*);
             }
         };
     };

@@ -1,6 +1,6 @@
 [package]
 name = "assert_has_field"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 authors = ["Dmitrii Demenev <dmitrii@searchless.ca>"]
 description = "A Rust macro for checking if a struct has a specific field."

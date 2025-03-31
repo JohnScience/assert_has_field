@@ -4,4 +4,4 @@ version = 4
 
 [[package]]
 name = "assert_has_field"
-version = "0.1.3"
+version = "0.1.4"
