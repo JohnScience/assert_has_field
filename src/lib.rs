@@ -1,6 +1,25 @@
 #![no_std]
 #![doc = include_str!("../README.md")]
 
+#[doc(hidden)]
+pub mod secret {
+    // Source: https://github.com/WorldSEnder/type-equalities-rs/tree/0a1aac50899ae966147ac6c917dbcc07da6a3626
+    pub trait AliasSelf {
+        /// Always set to `Self`, but the type checker doesn't reduce `T::Alias` to `T`.
+        type Alias: ?Sized;
+    }
+    impl<T: ?Sized> AliasSelf for T {
+        type Alias = T;
+    }
+
+    // Source: https://github.com/WorldSEnder/type-equalities-rs/tree/0a1aac50899ae966147ac6c917dbcc07da6a3626
+    pub trait IsEqual<U: ?Sized>: AliasSelf<Alias = U> {}
+    impl<T: ?Sized, U: ?Sized> IsEqual<U> for T where T: AliasSelf<Alias = U> {}
+
+    // Source: https://stackoverflow.com/a/70978292/8341513
+    pub fn ty_must_eq<T, U>(_: T) where T: IsEqual<U> {}
+}
+
 /// This macro performs a compile-time check if a struct has a specific field.
 ///
 /// ## Syntax
@@ -130,7 +149,7 @@ macro_rules! assert_has_field {
     (@ASSERT $unreachable_obj:ident, $field:ident : $field_ty:ty) => {
         // Here, the value on the right hand side must be the same type as the type on the left hand side
         // and the field must exist.
-        let _ : $field_ty = type_equalities::coerce($unreachable_obj.$field, type_equalities::refl());
+        $crate::secret::ty_must_eq::<_, $field_ty>($unreachable_obj.$field);
     };
     (@ASSERT $unreachable_obj:ident, $field:ident :~ $field_ty:ty) => {
         // Here, the value on the right hand side can be coerced to the type on the left hand side

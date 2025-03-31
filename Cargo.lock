@@ -4,22 +4,4 @@ version = 4
 
 [[package]]
 name = "assert_has_field"
-version = "0.1.2"
-dependencies = [
- "type-equalities",
-]
-
-[[package]]
-name = "rustversion"
-version = "1.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
-
-[[package]]
-name = "type-equalities"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4af4e18073e1b870efcf60be674c7fa244843fa5b6d9481ce9214d2d9dc7fdfc"
-dependencies = [
- "rustversion",
-]
+version = "0.1.3"
